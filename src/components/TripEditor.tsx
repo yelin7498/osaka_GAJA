@@ -13,7 +13,12 @@ import {
   Spot,
   emptyDay,
 } from '@/lib/types';
-import { getEditTokenLocally, addRecentTrip } from '@/lib/auth/editToken';
+import {
+  getEditTokenLocally,
+  addRecentTrip,
+  getPasscodeLocally,
+  savePasscodeLocally,
+} from '@/lib/auth/editToken';
 import DayCard from './DayCard';
 import SaveStatusIndicator from './SaveStatus';
 import Toast, { ToastState } from './Toast';
@@ -41,7 +46,8 @@ type TabId = (typeof TAB_DEFS)[number]['id'];
 export default function TripEditor({ initialTrip, slug }: { initialTrip: TripData; slug: string }) {
   const [trip, setTrip] = useState<TripData>(initialTrip);
   const [mode, setMode] = useState<'view' | 'edit'>('view');
-  const [isOwner, setIsOwner] = useState<boolean | null>(null);
+  // role: 'owner' = 이 브라우저가 만든 사람(editToken 보유), 'guest' = 공유 편집 암호로 참여한 사람
+  const [role, setRole] = useState<'owner' | 'guest' | null>(null);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [toast, setToast] = useState<ToastState | null>(null);
   const [showImport, setShowImport] = useState(false);
@@ -51,25 +57,85 @@ export default function TripEditor({ initialTrip, slug }: { initialTrip: TripDat
   const isFirstRender = useRef(true);
   const lastSavedRef = useRef(JSON.stringify(initialTrip));
 
-  // 소유권(편집 권한) 확인 + 최근 방문 목록 기록
+  // 편집 권한(소유자 editToken 또는 공유 편집 암호) 확인 + 최근 방문 목록 기록
   useEffect(() => {
     addRecentTrip({ slug, title: initialTrip.title, visitedAt: new Date().toISOString() });
 
     const token = getEditTokenLocally(slug);
-    if (!token) {
-      setIsOwner(false);
+    const passcode = getPasscodeLocally(slug);
+    if (!token && !passcode) {
+      setRole(null);
       return;
     }
     fetch(`/api/trips/${slug}/verify`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ editToken: token }),
+      body: JSON.stringify({ editToken: token ?? undefined, passcode: token ? undefined : passcode ?? undefined }),
     })
       .then((res) => res.json())
-      .then((data) => setIsOwner(Boolean(data.valid)))
-      .catch(() => setIsOwner(false));
+      .then((data) => setRole(data.valid ? (data.role === 'guest' ? 'guest' : 'owner') : null))
+      .catch(() => setRole(null));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
+
+  function getEditCredential(): { editToken?: string; passcode?: string } | null {
+    const token = getEditTokenLocally(slug);
+    if (token) return { editToken: token };
+    const passcode = getPasscodeLocally(slug);
+    if (passcode) return { passcode };
+    return null;
+  }
+
+  function handleJoinWithPasscode() {
+    const input = window.prompt('가족(또는 함께 편집할 분)에게 받은 편집 암호를 입력해주세요.');
+    if (input === null) return;
+    const passcode = input.trim();
+    if (!passcode) return;
+    fetch(`/api/trips/${slug}/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ passcode }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.valid) {
+          savePasscodeLocally(slug, passcode);
+          setRole('guest');
+          showToast('편집 권한을 얻었습니다. "편집하기" 버튼을 눌러 수정해보세요.');
+        } else {
+          showToast(data.error || '암호가 올바르지 않습니다.', 'error');
+        }
+      })
+      .catch(() => showToast('확인 중 오류가 발생했습니다.', 'error'));
+  }
+
+  function handleManagePasscode() {
+    const token = getEditTokenLocally(slug);
+    if (!token) return;
+    const input = window.prompt(
+      '가족과 공유할 편집 암호를 입력해주세요 (4자 이상).\n비워두고 확인을 누르면 공유 편집을 해제합니다.'
+    );
+    if (input === null) return;
+    const passcode = input.trim();
+    fetch(`/api/trips/${slug}/passcode`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ editToken: token, passcode: passcode || null }),
+    })
+      .then((res) => res.json().then((data) => ({ ok: res.ok, data })))
+      .then(({ ok, data }) => {
+        if (!ok) {
+          showToast(data.error || '설정에 실패했습니다.', 'error');
+          return;
+        }
+        if (data.enabled) {
+          showToast(`편집 암호가 "${passcode}"(으)로 설정되었습니다. 이 암호를 함께 편집할 분께 알려주세요.`);
+        } else {
+          showToast('공유 편집 암호를 해제했습니다.');
+        }
+      })
+      .catch(() => showToast('설정 중 오류가 발생했습니다.', 'error'));
+  }
 
   function showToast(message: string, type: 'info' | 'error' = 'info') {
     setToast({ message, type });
@@ -78,10 +144,10 @@ export default function TripEditor({ initialTrip, slug }: { initialTrip: TripDat
 
   const saveNow = useCallback(
     async (tripToSave: TripData) => {
-      const token = getEditTokenLocally(slug);
-      if (!token) {
+      const credential = getEditCredential();
+      if (!credential) {
         setSaveStatus('error');
-        showToast('편집 권한 토큰을 찾을 수 없습니다. 이 브라우저에서 만든 일정인지 확인해주세요.', 'error');
+        showToast('편집 권한을 찾을 수 없습니다. 이 브라우저에서 만들었거나 편집 암호로 참여했는지 확인해주세요.', 'error');
         return;
       }
       setSaveStatus('saving');
@@ -89,7 +155,7 @@ export default function TripEditor({ initialTrip, slug }: { initialTrip: TripDat
         const res = await fetch(`/api/trips/${slug}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ trip: tripToSave, editToken: token }),
+          body: JSON.stringify({ trip: tripToSave, ...credential }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || '저장에 실패했습니다.');
@@ -109,7 +175,7 @@ export default function TripEditor({ initialTrip, slug }: { initialTrip: TripDat
       isFirstRender.current = false;
       return;
     }
-    if (mode !== 'edit' || !isOwner) return;
+    if (mode !== 'edit' || !role) return;
 
     const currentJson = JSON.stringify(trip);
     if (currentJson === lastSavedRef.current) return;
@@ -123,7 +189,7 @@ export default function TripEditor({ initialTrip, slug }: { initialTrip: TripDat
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trip, mode, isOwner]);
+  }, [trip, mode, role]);
 
   function updateHeader(patch: Partial<TripData>) {
     setTrip((t) => ({ ...t, ...patch }));
@@ -196,7 +262,7 @@ export default function TripEditor({ initialTrip, slug }: { initialTrip: TripDat
     window.print();
   }
 
-  const canEdit = isOwner === true;
+  const canEdit = role !== null;
 
   return (
     <div>
@@ -293,6 +359,16 @@ export default function TripEditor({ initialTrip, slug }: { initialTrip: TripDat
             <button onClick={() => setShowImport(true)} aria-label="엑셀로 일정 가져오기">엑셀 가져오기</button>
             <SaveStatusIndicator status={saveStatus} />
           </>
+        )}
+        {role === 'owner' && (
+          <button onClick={handleManagePasscode} aria-label="공유 편집 암호 설정">
+            👪 편집 암호 설정
+          </button>
+        )}
+        {!canEdit && (
+          <button onClick={handleJoinWithPasscode} aria-label="편집 암호로 참여하기">
+            🔑 편집 암호로 참여
+          </button>
         )}
         <div className="spacer" />
         <button onClick={handleShare} aria-label="공유 링크 복사">🔗 공유 링크 복사</button>
