@@ -463,7 +463,15 @@ export default function TripEditor({ initialTrip, slug }: { initialTrip: TripDat
         )}
         {activeTab === 'outfit' && <OutfitSection outfits={trip.outfits} mode={mode} onChange={setOutfits} />}
         {activeTab === 'spots' && <SpotsSection spots={trip.spots} mode={mode} onChange={setSpots} />}
-        {activeTab === 'checklist' && <ChecklistSection checklist={trip.checklist} mode={mode} onChange={setChecklist} />}
+        {activeTab === 'checklist' && (
+          <ChecklistSection
+            checklist={trip.checklist}
+            mode={mode}
+            onChange={setChecklist}
+            tripStartDate={trip.startDate}
+            tripEndDate={trip.endDate}
+          />
+        )}
         {activeTab === 'packing' && <PackingSection packing={trip.packing} mode={mode} onChange={setPacking} />}
       </main>
 
