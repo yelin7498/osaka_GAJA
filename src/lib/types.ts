@@ -32,6 +32,77 @@ export interface TripDay {
   items: ItineraryItem[];
 }
 
+export type Currency = 'KRW' | 'JPY';
+
+export const BUDGET_CATEGORIES = [
+  '항공권',
+  '숙박',
+  '현지 교통',
+  '식비',
+  '관광/체험',
+  '쇼핑',
+  '통신(유심/와이파이)',
+  '기타/예비비',
+] as const;
+
+export const PAYMENT_METHODS = ['현금', '카드', '기타'] as const;
+export const PRIORITY_LEVELS = ['상', '중', '하'] as const;
+
+export interface BudgetItem {
+  id: string;
+  category: string;
+  currency: Currency;
+  amount: number;
+  note: string;
+}
+
+export interface ExpenseItem {
+  id: string;
+  date: string;
+  item: string;
+  category: string;
+  currency: Currency;
+  amount: number;
+  payment: string;
+  memo: string;
+}
+
+export interface OutfitDay {
+  id: string;
+  label: string;
+  hair: string;
+  outer: string;
+  top: string;
+  bottom: string;
+  shoes: string;
+  bag: string;
+  memo: string;
+}
+
+export interface ChecklistItem {
+  id: string;
+  text: string;
+  due: string;
+  done: boolean;
+}
+
+export interface PackingItem {
+  id: string;
+  category: string;
+  text: string;
+  done: boolean;
+}
+
+export interface Spot {
+  id: string;
+  region: string;
+  name: string;
+  category: string;
+  priority: string;
+  visited: boolean;
+  memo: string;
+}
+
 export interface TripData {
   id: string;
   slug: string;
@@ -41,9 +112,65 @@ export interface TripData {
   travelers: number;
   hotel: string;
   description: string;
+  exRate: number; // 엔화->원화 환율 (예: 900 이면 100엔 = 900원 기준으로 사용)
   days: TripDay[];
+  budget: BudgetItem[];
+  expenses: ExpenseItem[];
+  outfits: OutfitDay[];
+  checklist: ChecklistItem[];
+  packing: PackingItem[];
+  spots: Spot[];
   createdAt: string;
   updatedAt: string;
+}
+
+// 이전 버전(일정표만 있던 시절)에 만들어진 trip_data를 열 때도 깨지지 않도록
+// 누락된 필드를 기본값으로 채워줍니다.
+export function normalizeTrip(trip: Partial<TripData> & { days: TripDay[] }): TripData {
+  return {
+    id: trip.id ?? newId('trip'),
+    slug: trip.slug ?? '',
+    title: trip.title ?? '새로운 가족여행',
+    startDate: trip.startDate ?? '',
+    endDate: trip.endDate ?? '',
+    travelers: trip.travelers ?? 2,
+    hotel: trip.hotel ?? '',
+    description: trip.description ?? '',
+    exRate: trip.exRate ?? 900,
+    days: trip.days ?? [],
+    budget: trip.budget ?? [],
+    expenses: trip.expenses ?? [],
+    outfits: trip.outfits ?? [],
+    checklist: trip.checklist ?? [],
+    packing: trip.packing ?? [],
+    spots: trip.spots ?? [],
+    createdAt: trip.createdAt ?? new Date().toISOString(),
+    updatedAt: trip.updatedAt ?? new Date().toISOString(),
+  };
+}
+
+export function emptyBudgetItem(): BudgetItem {
+  return { id: newId('budget'), category: BUDGET_CATEGORIES[0], currency: 'KRW', amount: 0, note: '' };
+}
+
+export function emptyExpense(): ExpenseItem {
+  return { id: newId('expense'), date: '', item: '', category: BUDGET_CATEGORIES[0], currency: 'JPY', amount: 0, payment: '현금', memo: '' };
+}
+
+export function emptyOutfit(label = ''): OutfitDay {
+  return { id: newId('outfit'), label, hair: '', outer: '', top: '', bottom: '', shoes: '', bag: '', memo: '' };
+}
+
+export function emptyChecklistItem(): ChecklistItem {
+  return { id: newId('check'), text: '', due: '', done: false };
+}
+
+export function emptyPackingItem(): PackingItem {
+  return { id: newId('pack'), category: '기타', text: '', done: false };
+}
+
+export function emptySpot(): Spot {
+  return { id: newId('spot'), region: '', name: '', category: '', priority: '중', visited: false, memo: '' };
 }
 
 // DB row 형태 (trips 테이블). trip_data 안에 TripData가 그대로 들어있습니다.
@@ -100,7 +227,14 @@ export function createBlankTrip(overrides: Partial<TripData> = {}): TripData {
     travelers: 2,
     hotel: '',
     description: '',
+    exRate: 900,
     days: [emptyDay(1)],
+    budget: [],
+    expenses: [],
+    outfits: [],
+    checklist: [],
+    packing: [],
+    spots: [],
     createdAt: now,
     updatedAt: now,
     ...overrides,
