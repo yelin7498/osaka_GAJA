@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseAdmin, verifyEditToken } from '@/lib/supabase/server';
+import { getSupabaseAdmin, verifyEditToken, verifyPasscode } from '@/lib/supabase/server';
 import { TripData } from '@/lib/types';
 
 type RouteContext = { params: Promise<{ slug: string }> };
@@ -28,9 +28,10 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
     const { slug } = await params;
     const body = await req.json();
     const editToken: string | undefined = body?.editToken;
+    const passcode: string | undefined = body?.passcode;
     const trip: TripData | undefined = body?.trip;
 
-    if (!editToken) {
+    if (!editToken && !passcode) {
       return NextResponse.json({ error: '편집 권한 토큰이 없습니다.' }, { status: 401 });
     }
     if (!trip) {
@@ -40,7 +41,7 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
     const supabase = getSupabaseAdmin();
     const { data: row, error: fetchError } = await supabase
       .from('trips')
-      .select('id, edit_token_hash')
+      .select('id, edit_token_hash, edit_passcode_hash')
       .eq('slug', slug)
       .maybeSingle();
 
@@ -48,7 +49,10 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
     if (!row) return NextResponse.json({ error: '일정을 찾을 수 없습니다.' }, { status: 404 });
 
     // *** 실제 권한 검증은 항상 서버에서 다시 수행합니다 (클라이언트 값은 신뢰하지 않음) ***
-    const ok = verifyEditToken(editToken, row.edit_token_hash);
+    // 소유자(editToken) 또는 공유 편집 암호(passcode) 중 하나라도 일치하면 저장을 허용합니다.
+    const ok =
+      (!!editToken && verifyEditToken(editToken, row.edit_token_hash)) ||
+      (!!passcode && verifyPasscode(passcode, slug, row.edit_passcode_hash));
     if (!ok) {
       return NextResponse.json({ error: '편집 권한이 없습니다.' }, { status: 403 });
     }
