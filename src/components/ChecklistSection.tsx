@@ -1,14 +1,116 @@
 'use client';
 
+import { useState, type ReactNode } from 'react';
 import { ChecklistItem, emptyChecklistItem } from '@/lib/types';
 
 interface Props {
   checklist: ChecklistItem[];
   mode: 'view' | 'edit';
   onChange: (checklist: ChecklistItem[]) => void;
+  tripStartDate?: string;
+  tripEndDate?: string;
 }
 
-export default function ChecklistSection({ checklist, mode, onChange }: Props) {
+function pad2(n: number) {
+  return String(n).padStart(2, '0');
+}
+function dstr(y: number, m: number, d: number) {
+  return `${y}-${pad2(m + 1)}-${pad2(d)}`;
+}
+
+// 오늘 + 여행 시작/종료일 + 체크리스트 마감일이 속한 달들을 (중복 없이, 순서대로) 계산합니다.
+function monthsToShow(checklist: ChecklistItem[], startDate?: string, endDate?: string) {
+  const dates: Date[] = [new Date()];
+  if (startDate) dates.push(new Date(startDate));
+  if (endDate) dates.push(new Date(endDate));
+  checklist.forEach((c) => {
+    if (c.due) dates.push(new Date(c.due));
+  });
+  const seen = new Set<string>();
+  const out: { y: number; m: number }[] = [];
+  dates.forEach((d) => {
+    if (Number.isNaN(d.getTime())) return;
+    const key = `${d.getFullYear()}-${d.getMonth()}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      out.push({ y: d.getFullYear(), m: d.getMonth() });
+    }
+  });
+  return out.sort((a, b) => a.y - b.y || a.m - b.m);
+}
+
+const DOW = ['일', '월', '화', '수', '목', '금', '토'];
+
+function MonthCalendar({
+  y,
+  m,
+  checklist,
+  startDate,
+  endDate,
+  selected,
+  onSelectDate,
+  onToggleTask,
+}: {
+  y: number;
+  m: number;
+  checklist: ChecklistItem[];
+  startDate?: string;
+  endDate?: string;
+  selected: string | null;
+  onSelectDate: (d: string) => void;
+  onToggleTask: (id: string) => void;
+}) {
+  const first = new Date(y, m, 1).getDay();
+  const total = new Date(y, m + 1, 0).getDate();
+  const cells: ReactNode[] = [];
+  for (let i = 0; i < first; i++) {
+    cells.push(<div key={`empty-${i}`} className="cal-cell empty" />);
+  }
+  for (let d = 1; d <= total; d++) {
+    const ds = dstr(y, m, d);
+    const isTrip = !!startDate && !!endDate && ds >= startDate && ds <= endDate;
+    const isSelected = selected === ds;
+    const tasks = checklist.filter((c) => c.due === ds);
+    cells.push(
+      <div
+        key={ds}
+        className={`cal-cell ${isTrip ? 'trip' : ''} ${isSelected ? 'selected' : ''}`}
+        onClick={() => onSelectDate(ds)}
+      >
+        <div className="daynum">{d}</div>
+        {tasks.map((t) => (
+          <div
+            key={t.id}
+            className={`cal-task ${t.done ? 'done' : ''}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleTask(t.id);
+            }}
+          >
+            <span className="dot" />
+            <span className="t">{t.text || '(내용 없음)'}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="cal-month-title">{y}년 {m + 1}월</div>
+      <div className="cal-grid">
+        {DOW.map((w) => (
+          <div key={w} className="cal-dow">{w}</div>
+        ))}
+        {cells}
+      </div>
+    </div>
+  );
+}
+
+export default function ChecklistSection({ checklist, mode, onChange, tripStartDate, tripEndDate }: Props) {
+  const [filterDate, setFilterDate] = useState<string | null>(null);
+
   function update(id: string, patch: Partial<ChecklistItem>) {
     onChange(checklist.map((c) => (c.id === id ? { ...c, ...patch } : c)));
   }
@@ -18,24 +120,78 @@ export default function ChecklistSection({ checklist, mode, onChange }: Props) {
   function add() {
     onChange([...checklist, emptyChecklistItem()]);
   }
+  function toggleDone(id: string) {
+    const target = checklist.find((c) => c.id === id);
+    if (target) update(id, { done: !target.done });
+  }
+  function selectDate(d: string) {
+    setFilterDate((prev) => (prev === d ? null : d));
+  }
 
-  const sorted = [...checklist].sort((a, b) => (a.due || '9999').localeCompare(b.due || '9999'));
+  const months = monthsToShow(checklist, tripStartDate, tripEndDate);
+  const listSource = filterDate ? checklist.filter((c) => c.due && c.due <= filterDate) : checklist;
+  const sorted = [...listSource].sort((a, b) => {
+    if (!a.due && !b.due) return 0;
+    if (!a.due) return 1;
+    if (!b.due) return -1;
+    return a.due.localeCompare(b.due);
+  });
   const doneCount = checklist.filter((c) => c.done).length;
 
   return (
     <section className="card">
-      <h2>준비 체크리스트</h2>
-      <p className="hint">출발 전 처리해야 할 일들을 마감일과 함께 관리하세요.</p>
+      <h2>출발 전 체크리스트 캘린더</h2>
+      <p className="hint">
+        각 항목에 마감일을 정하면 아래 달력에 표시돼요. 여행 기간
+        {tripStartDate && tripEndDate ? ` (${tripStartDate} ~ ${tripEndDate})` : ''}은 붉게 표시됩니다. 날짜를 클릭하면 그날까지 해야 할 일만 볼 수 있어요.
+      </p>
 
       {checklist.length > 0 && (
         <div className="summary-bar">
-          <span>
-            완료 <b>{doneCount}</b> / {checklist.length}
+          <span>완료 <b>{doneCount}</b> / {checklist.length}</span>
+        </div>
+      )}
+
+      {months.map(({ y, m }) => (
+        <MonthCalendar
+          key={`${y}-${m}`}
+          y={y}
+          m={m}
+          checklist={checklist}
+          startDate={tripStartDate}
+          endDate={tripEndDate}
+          selected={filterDate}
+          onSelectDate={selectDate}
+          onToggleTask={toggleDone}
+        />
+      ))}
+
+      {filterDate && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 10,
+            margin: '14px 0 4px',
+            padding: '8px 12px',
+            background: 'var(--line-soft)',
+            borderRadius: 8,
+          }}
+        >
+          <span style={{ fontSize: 12.5, color: 'var(--indigo)', fontWeight: 600 }}>
+            📅 {filterDate}까지 해야 할 일 ({sorted.length}개)
           </span>
+          <button className="ghost" onClick={() => setFilterDate(null)} aria-label="전체 보기">
+            전체 보기
+          </button>
         </div>
       )}
 
       {checklist.length === 0 && mode === 'view' && <p className="hint" style={{ margin: 0 }}>등록된 체크리스트가 없습니다.</p>}
+      {checklist.length > 0 && sorted.length === 0 && (
+        <p className="hint" style={{ margin: '10px 0 0' }}>이 날짜까지 마감인 항목이 없어요.</p>
+      )}
 
       {sorted.map((c) => (
         <div key={c.id} className={`check-row ${c.done ? 'done' : ''}`}>
