@@ -41,6 +41,39 @@ export function clearEditTokenLocally(slug: string) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// 공유 편집 암호(passcode) - 가족 등 다른 사람이 같은 링크에서 함께 편집할 때 사용.
+// 소유자의 editToken과 달리, 여러 브라우저가 "같은 값"을 알고 있어도 되는 공유 비밀입니다.
+// ---------------------------------------------------------------------------
+const PASSCODE_PREFIX = 'trip_edit_passcode_';
+
+export function savePasscodeLocally(slug: string, passcode: string) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(PASSCODE_PREFIX + slug, passcode);
+  } catch {
+    // localStorage 사용 불가(시크릿 모드 등) - 조용히 무시
+  }
+}
+
+export function getPasscodeLocally(slug: string): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return window.localStorage.getItem(PASSCODE_PREFIX + slug);
+  } catch {
+    return null;
+  }
+}
+
+export function clearPasscodeLocally(slug: string) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.removeItem(PASSCODE_PREFIX + slug);
+  } catch {
+    // ignore
+  }
+}
+
 // 최근에 만들었거나 열어본 여행 목록(메인 페이지 "기존 일정 불러오기"에서 사용)
 const RECENT_KEY = 'trip_recent_list';
 export interface RecentTrip {
