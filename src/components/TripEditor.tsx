@@ -52,6 +52,12 @@ export default function TripEditor({ initialTrip, slug }: { initialTrip: TripDat
   const [toast, setToast] = useState<ToastState | null>(null);
   const [showImport, setShowImport] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('itinerary');
+  // 편집 암호 설정/참여용 다이얼로그. window.prompt()는 카카오톡 등 인앱 브라우저에서
+  // 아예 뜨지 않거나 무시되는 경우가 있어, 화면 안 모달로 직접 구현합니다.
+  const [passcodeDialog, setPasscodeDialog] = useState<'manage' | 'join' | null>(null);
+  const [passcodeInput, setPasscodeInput] = useState('');
+  const [passcodeError, setPasscodeError] = useState<string | null>(null);
+  const [passcodeBusy, setPasscodeBusy] = useState(false);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isFirstRender = useRef(true);
@@ -86,55 +92,86 @@ export default function TripEditor({ initialTrip, slug }: { initialTrip: TripDat
     return null;
   }
 
-  function handleJoinWithPasscode() {
-    const input = window.prompt('가족(또는 함께 편집할 분)에게 받은 편집 암호를 입력해주세요.');
-    if (input === null) return;
-    const passcode = input.trim();
-    if (!passcode) return;
-    fetch(`/api/trips/${slug}/join`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ passcode }),
-    })
-      .then((res) => res.json())
-      .then((data) => {
+  function openJoinPasscodeDialog() {
+    setPasscodeInput('');
+    setPasscodeError(null);
+    setPasscodeDialog('join');
+  }
+
+  function openManagePasscodeDialog() {
+    setPasscodeInput('');
+    setPasscodeError(null);
+    setPasscodeDialog('manage');
+  }
+
+  function closePasscodeDialog() {
+    if (passcodeBusy) return;
+    setPasscodeDialog(null);
+  }
+
+  async function submitPasscodeDialog() {
+    if (passcodeDialog === 'join') {
+      const passcode = passcodeInput.trim();
+      if (!passcode) {
+        setPasscodeError('편집 암호를 입력해주세요.');
+        return;
+      }
+      setPasscodeBusy(true);
+      setPasscodeError(null);
+      try {
+        const res = await fetch(`/api/trips/${slug}/join`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ passcode }),
+        });
+        const data = await res.json();
         if (data.valid) {
           savePasscodeLocally(slug, passcode);
           setRole('guest');
+          setPasscodeDialog(null);
           showToast('편집 권한을 얻었습니다. "편집하기" 버튼을 눌러 수정해보세요.');
         } else {
-          showToast(data.error || '암호가 올바르지 않습니다.', 'error');
+          setPasscodeError(data.error || '암호가 올바르지 않습니다.');
         }
-      })
-      .catch(() => showToast('확인 중 오류가 발생했습니다.', 'error'));
-  }
+      } catch {
+        setPasscodeError('확인 중 오류가 발생했습니다. 네트워크 연결을 확인해주세요.');
+      } finally {
+        setPasscodeBusy(false);
+      }
+      return;
+    }
 
-  function handleManagePasscode() {
+    // manage
     const token = getEditTokenLocally(slug);
-    if (!token) return;
-    const input = window.prompt(
-      '가족과 공유할 편집 암호를 입력해주세요 (4자 이상).\n비워두고 확인을 누르면 공유 편집을 해제합니다.'
-    );
-    if (input === null) return;
-    const passcode = input.trim();
-    fetch(`/api/trips/${slug}/passcode`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ editToken: token, passcode: passcode || null }),
-    })
-      .then((res) => res.json().then((data) => ({ ok: res.ok, data })))
-      .then(({ ok, data }) => {
-        if (!ok) {
-          showToast(data.error || '설정에 실패했습니다.', 'error');
-          return;
-        }
-        if (data.enabled) {
-          showToast(`편집 암호가 "${passcode}"(으)로 설정되었습니다. 이 암호를 함께 편집할 분께 알려주세요.`);
-        } else {
-          showToast('공유 편집 암호를 해제했습니다.');
-        }
-      })
-      .catch(() => showToast('설정 중 오류가 발생했습니다.', 'error'));
+    if (!token) {
+      setPasscodeError('편집 권한을 확인할 수 없습니다. 페이지를 새로고침한 뒤 다시 시도해주세요.');
+      return;
+    }
+    const passcode = passcodeInput.trim();
+    setPasscodeBusy(true);
+    setPasscodeError(null);
+    try {
+      const res = await fetch(`/api/trips/${slug}/passcode`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ editToken: token, passcode: passcode || null }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setPasscodeError(data.error || '설정에 실패했습니다.');
+        return;
+      }
+      setPasscodeDialog(null);
+      if (data.enabled) {
+        showToast(`편집 암호가 "${passcode}"(으)로 설정되었습니다. 이 암호를 함께 편집할 분께 알려주세요.`);
+      } else {
+        showToast('공유 편집 암호를 해제했습니다.');
+      }
+    } catch {
+      setPasscodeError('설정 중 오류가 발생했습니다. 네트워크 연결을 확인해주세요.');
+    } finally {
+      setPasscodeBusy(false);
+    }
   }
 
   function showToast(message: string, type: 'info' | 'error' = 'info') {
@@ -361,12 +398,12 @@ export default function TripEditor({ initialTrip, slug }: { initialTrip: TripDat
           </>
         )}
         {role === 'owner' && (
-          <button onClick={handleManagePasscode} aria-label="공유 편집 암호 설정">
+          <button onClick={openManagePasscodeDialog} aria-label="공유 편집 암호 설정">
             👪 편집 암호 설정
           </button>
         )}
         {!canEdit && (
-          <button onClick={handleJoinWithPasscode} aria-label="편집 암호로 참여하기">
+          <button onClick={openJoinPasscodeDialog} aria-label="편집 암호로 참여하기">
             🔑 편집 암호로 참여
           </button>
         )}
@@ -431,6 +468,40 @@ export default function TripEditor({ initialTrip, slug }: { initialTrip: TripDat
       </main>
 
       {showImport && <ExcelImportModal onClose={() => setShowImport(false)} onImport={handleImport} />}
+
+      {passcodeDialog && (
+        <div className="modal-backdrop" onClick={closePasscodeDialog}>
+          <div className="modal-box" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420 }}>
+            <h3 className="display-h">{passcodeDialog === 'manage' ? '편집 암호 설정' : '편집 암호로 참여'}</h3>
+            <p className="hint">
+              {passcodeDialog === 'manage'
+                ? '가족과 공유할 암호를 정해주세요 (4자 이상). 입력칸을 비워두고 확인을 누르면 공유 편집을 해제합니다.'
+                : '가족(또는 함께 편집할 분)에게 받은 편집 암호를 입력해주세요.'}
+            </p>
+            <input
+              type="text"
+              value={passcodeInput}
+              onChange={(e) => setPasscodeInput(e.target.value)}
+              placeholder="암호 입력"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') submitPasscodeDialog();
+              }}
+              style={{ width: '100%', boxSizing: 'border-box' }}
+            />
+            {passcodeError && (
+              <p style={{ color: 'var(--danger)', fontSize: 12.5, marginTop: 6 }}>{passcodeError}</p>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+              <button onClick={closePasscodeDialog} disabled={passcodeBusy}>취소</button>
+              <button className="primary" onClick={submitPasscodeDialog} disabled={passcodeBusy}>
+                {passcodeBusy ? '처리 중...' : '확인'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Toast toast={toast} />
     </div>
   );
