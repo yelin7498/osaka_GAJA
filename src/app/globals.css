@@ -203,6 +203,48 @@ table.excel-preview th { background: var(--line-soft); }
 .priority-tag.중 { background: var(--line-soft); color: var(--indigo); }
 .priority-tag.하 { background: var(--line-soft); color: var(--ink-soft); }
 
+/* ---------- 체크리스트 캘린더 ---------- */
+.cal-month-title { font-family: 'Song Myung', serif; color: var(--indigo); font-size: 15px; margin: 18px 0 8px; font-weight: 400; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+.cal-dow { font-size: 11px; color: var(--ink-soft); text-align: center; padding-bottom: 2px; font-weight: 600; }
+.cal-cell { min-height: 64px; border: 1px solid var(--line); border-radius: 8px; padding: 4px 5px; background: #fff; cursor: pointer; transition: .12s; }
+.cal-cell:not(.empty):hover { border-color: var(--indigo-soft); }
+.cal-cell.selected { background: var(--indigo); border-color: var(--indigo); }
+.cal-cell.selected .daynum { color: #fff; }
+.cal-cell.selected.trip { background: var(--vermillion); border-color: var(--vermillion); }
+.cal-cell.empty { border: none; background: transparent; cursor: default; }
+.cal-cell.trip { background: #F8ECE9; border-color: var(--vermillion-soft); }
+.cal-cell .daynum { font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 11px; color: var(--ink-soft); }
+.cal-cell.trip .daynum { color: var(--vermillion); }
+.cal-task { display: flex; align-items: flex-start; gap: 3px; font-size: 9.5px; margin-top: 3px; cursor: pointer; line-height: 1.25; }
+.cal-task .dot { width: 7px; height: 7px; border-radius: 50%; border: 1.5px solid var(--gold); flex-shrink: 0; margin-top: 2px; }
+.cal-task.done .dot { background: var(--gold); }
+.cal-task.done span.t { text-decoration: line-through; color: var(--ink-soft); }
+.cal-cell.selected .cal-task span.t { color: #fff; }
+.cal-cell.selected .cal-task.done span.t { color: rgba(255,255,255,0.65); }
+.cal-cell.selected .cal-task .dot { border-color: #fff; }
+.cal-cell.selected .cal-task.done .dot { background: #fff; }
+@media (max-width: 640px) {
+  .cal-cell { min-height: 52px; padding: 3px; }
+  .cal-task span.t { display: none; }
+}
+
+/* ---------- 코디 사진 ---------- */
+.outfit-grid { display: grid; grid-template-columns: 140px 1fr; gap: 16px; margin-bottom: 4px; }
+@media (max-width: 640px) { .outfit-grid { grid-template-columns: 1fr; } }
+.photo-slot {
+  aspect-ratio: 3 / 4; border-radius: 10px; border: 2px dashed var(--line);
+  background: var(--line-soft); display: flex; align-items: center; justify-content: center;
+  position: relative; overflow: hidden;
+}
+.photo-slot img { width: 100%; height: 100%; object-fit: cover; }
+.photo-slot .ph-label { font-size: 12px; color: var(--ink-soft); text-align: center; padding: 10px; }
+.photo-slot input[type='file'] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.photo-slot .remove-photo {
+  position: absolute; top: 6px; right: 6px; background: rgba(35,43,37,.65); color: #fff;
+  border: none; border-radius: 50%; width: 22px; height: 22px; font-size: 12px; line-height: 1; cursor: pointer; z-index: 2;
+}
+
 /* ---------- print ---------- */
 @media print {
   .no-print { display: none !important; }
