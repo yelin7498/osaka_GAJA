@@ -216,7 +216,7 @@ export default function ChecklistSection({ checklist, mode, onChange, tripStartD
             </>
           ) : (
             <>
-              <span className="cl-text" style={{ flex: 1, fontSize: 13.5 }}>
+              <span className="cl-text" title={c.text || '(내용 없음)'} style={{ flex: 1, fontSize: 13.5 }}>
                 {c.text || '(내용 없음)'}
               </span>
               {c.due && (
