@@ -11,12 +11,16 @@ create table if not exists public.trips (
   title            text not null default '',
   trip_data        jsonb not null,          -- TripData 전체(JSON) 저장
   edit_token_hash  text not null,           -- editToken 원문의 SHA-256 해시. 원문은 절대 저장하지 않음
+  edit_passcode_hash text,                 -- 공유 편집 암호(passcode)의 SHA-256(slug 솔트) 해시. 미설정 시 null
   is_public        boolean not null default true,
   created_at       timestamptz not null default now(),
   updated_at       timestamptz not null default now()
 );
 
 create index if not exists trips_slug_idx on public.trips (slug);
+
+-- 이미 배포된 기존 테이블에 새 컬럼만 추가해야 한다면 아래 한 줄만 실행하면 됩니다:
+-- alter table public.trips add column if not exists edit_passcode_hash text;
 
 -- updated_at 자동 갱신 트리거 (API 코드에서도 갱신하지만, 다른 경로로 수정되는 경우까지 대비)
 create or replace function public.set_updated_at()
