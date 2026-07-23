@@ -135,10 +135,6 @@ button.danger { color: var(--danger); }
   .check-row input[type='date'],
   .pack-row input:not(.cl-input):not([type='checkbox']) { order: 2; }
   .check-row .row-delete, .pack-row .row-delete { order: 3; margin-left: auto; }
-  /* 보기 모드: 할일 텍스트가 마감일 span과 폭을 나눠 갖다가 한 글자씩 세로로 줄바꿈되던 문제.
-     텍스트가 한 줄 전체 폭을 쓰고, 마감일은 그 아래 줄에 오도록 함. */
-  .check-row .cl-text { flex: 1 1 100%; min-width: 0; order: 1; }
-  .check-row .cl-due { order: 2; flex: 0 0 auto; margin-left: 26px; }
 }
 
 .drag-handle { cursor: grab; color: var(--ink-soft); text-align: center; padding-top: 8px; touch-action: none; user-select: none; font-size: 16px; }
@@ -200,6 +196,10 @@ table.excel-preview th { background: var(--line-soft); }
 .check-row, .pack-row { display: flex; align-items: center; gap: 10px; padding: 8px 2px; border-top: 1px dashed var(--line); }
 .check-row:first-of-type, .pack-row:first-of-type { border-top: none; }
 .check-row.done .cl-text, .pack-row.done .cl-text { text-decoration: line-through; color: var(--ink-soft); }
+/* 좁은 화면에서 텍스트가 한 글자씩 세로로 줄바꿈되던 문제: 항상 한 줄을 유지하고,
+   폭이 부족하면 줄바꿈 대신 말줄임표(...)로 넘치도록 고정 */
+.check-row .cl-text, .pack-row .cl-text { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.check-row .cl-due { flex-shrink: 0; white-space: nowrap; }
 .group-title { font-size: 12px; font-weight: 600; color: var(--indigo); margin: 14px 0 4px; }
 .group-title:first-child { margin-top: 0; }
 .priority-tag { font-size: 10.5px; border-radius: 20px; padding: 1px 8px; display: inline-block; }
