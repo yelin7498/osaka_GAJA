@@ -135,6 +135,10 @@ button.danger { color: var(--danger); }
   .check-row input[type='date'],
   .pack-row input:not(.cl-input):not([type='checkbox']) { order: 2; }
   .check-row .row-delete, .pack-row .row-delete { order: 3; margin-left: auto; }
+  /* 보기 모드: 할일 텍스트가 마감일 span과 폭을 나눠 갖다가 한 글자씩 세로로 줄바꿈되던 문제.
+     텍스트가 한 줄 전체 폭을 쓰고, 마감일은 그 아래 줄에 오도록 함. */
+  .check-row .cl-text { flex: 1 1 100%; min-width: 0; order: 1; }
+  .check-row .cl-due { order: 2; flex: 0 0 auto; margin-left: 26px; }
 }
 
 .drag-handle { cursor: grab; color: var(--ink-soft); text-align: center; padding-top: 8px; touch-action: none; user-select: none; font-size: 16px; }
