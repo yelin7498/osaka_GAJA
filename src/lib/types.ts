@@ -77,6 +77,7 @@ export interface OutfitDay {
   shoes: string;
   bag: string;
   memo: string;
+  photo: string | null; // 압축된 JPEG data URL (원본 html과 동일하게 최대 420px 폭으로 리사이즈해 저장)
 }
 
 export interface ChecklistItem {
@@ -140,7 +141,7 @@ export function normalizeTrip(trip: Partial<TripData> & { days: TripDay[] }): Tr
     days: trip.days ?? [],
     budget: trip.budget ?? [],
     expenses: trip.expenses ?? [],
-    outfits: trip.outfits ?? [],
+    outfits: (trip.outfits ?? []).map((o) => ({ ...o, photo: o.photo ?? null })),
     checklist: trip.checklist ?? [],
     packing: trip.packing ?? [],
     spots: trip.spots ?? [],
@@ -158,7 +159,7 @@ export function emptyExpense(): ExpenseItem {
 }
 
 export function emptyOutfit(label = ''): OutfitDay {
-  return { id: newId('outfit'), label, hair: '', outer: '', top: '', bottom: '', shoes: '', bag: '', memo: '' };
+  return { id: newId('outfit'), label, hair: '', outer: '', top: '', bottom: '', shoes: '', bag: '', memo: '', photo: null };
 }
 
 export function emptyChecklistItem(): ChecklistItem {
