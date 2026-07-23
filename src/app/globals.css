@@ -200,6 +200,9 @@ table.excel-preview th { background: var(--line-soft); }
    폭이 부족하면 줄바꿈 대신 말줄임표(...)로 넘치도록 고정 */
 .check-row .cl-text, .pack-row .cl-text { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .check-row .cl-due { flex-shrink: 0; white-space: nowrap; }
+input[type='checkbox'] { width: 16px; height: 16px; flex-shrink: 0; }
+/* 보기 모드 행(체크박스 · 텍스트 · 마감일)은 좁은 화면에서도 절대 줄바꿈하지 않고 한 줄 유지 */
+.check-row.check-row--view { flex-wrap: nowrap; }
 .group-title { font-size: 12px; font-weight: 600; color: var(--indigo); margin: 14px 0 4px; }
 .group-title:first-child { margin-top: 0; }
 .priority-tag { font-size: 10.5px; border-radius: 20px; padding: 1px 8px; display: inline-block; }
