@@ -45,3 +45,21 @@ export function verifyEditToken(token: string, storedHash: string): boolean {
   if (candidate.length !== stored.length) return false;
   return crypto.timingSafeEqual(candidate, stored);
 }
+
+// ---- 공유 편집 암호(passcode) 발급/해시 -------------------------------------
+// 가족 등 여러 사람이 같은 링크에서 함께 편집할 수 있도록, 소유자(editToken 보유자)가
+// 정하는 공유 암호입니다. slug를 salt로 섞어 해시하므로 여행마다 다른 해시가 됩니다.
+// (editToken과 달리 여러 사람이 같은 값을 알고 있어야 하는 "공유 비밀"이라
+//  256bit 무작위값이 아닌, 사람이 정하는 짧은 문자열을 허용합니다.)
+
+export function hashPasscode(passcode: string, slug: string): string {
+  return crypto.createHash('sha256').update(`${slug}:${passcode}`).digest('hex');
+}
+
+export function verifyPasscode(passcode: string, slug: string, storedHash: string | null | undefined): boolean {
+  if (!storedHash) return false;
+  const candidate = Buffer.from(hashPasscode(passcode, slug));
+  const stored = Buffer.from(storedHash);
+  if (candidate.length !== stored.length) return false;
+  return crypto.timingSafeEqual(candidate, stored);
+}
