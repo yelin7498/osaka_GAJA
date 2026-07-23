@@ -1,14 +1,42 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { TripData, TripDay, SaveStatus, emptyDay, newId } from '@/lib/types';
+import {
+  TripData,
+  TripDay,
+  SaveStatus,
+  BudgetItem,
+  ExpenseItem,
+  OutfitDay,
+  ChecklistItem,
+  PackingItem,
+  Spot,
+  emptyDay,
+} from '@/lib/types';
 import { getEditTokenLocally, addRecentTrip } from '@/lib/auth/editToken';
 import DayCard from './DayCard';
 import SaveStatusIndicator from './SaveStatus';
 import Toast, { ToastState } from './Toast';
 import ExcelImportModal from './ExcelImportModal';
+import BudgetSection from './BudgetSection';
+import ExpenseSection from './ExpenseSection';
+import OutfitSection from './OutfitSection';
+import SpotsSection from './SpotsSection';
+import ChecklistSection from './ChecklistSection';
+import PackingSection from './PackingSection';
 
 const AUTOSAVE_DELAY_MS = 1000;
+
+const TAB_DEFS = [
+  { id: 'itinerary', label: '일정표' },
+  { id: 'budget', label: '예산' },
+  { id: 'expense', label: '지출내역' },
+  { id: 'outfit', label: '코디' },
+  { id: 'spots', label: '주요여행지' },
+  { id: 'checklist', label: '체크리스트' },
+  { id: 'packing', label: '준비물' },
+] as const;
+type TabId = (typeof TAB_DEFS)[number]['id'];
 
 export default function TripEditor({ initialTrip, slug }: { initialTrip: TripData; slug: string }) {
   const [trip, setTrip] = useState<TripData>(initialTrip);
@@ -17,6 +45,7 @@ export default function TripEditor({ initialTrip, slug }: { initialTrip: TripDat
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [toast, setToast] = useState<ToastState | null>(null);
   const [showImport, setShowImport] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabId>('itinerary');
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isFirstRender = useRef(true);
@@ -131,6 +160,28 @@ export default function TripEditor({ initialTrip, slug }: { initialTrip: TripDat
     });
     setShowImport(false);
     showToast(`엑셀에서 ${importedDays.reduce((n, d) => n + d.items.length, 0)}개 일정을 가져왔습니다.`);
+  }
+
+  function setBudget(budget: BudgetItem[]) {
+    setTrip((t) => ({ ...t, budget }));
+  }
+  function setExRate(exRate: number) {
+    setTrip((t) => ({ ...t, exRate }));
+  }
+  function setExpenses(expenses: ExpenseItem[]) {
+    setTrip((t) => ({ ...t, expenses }));
+  }
+  function setOutfits(outfits: OutfitDay[]) {
+    setTrip((t) => ({ ...t, outfits }));
+  }
+  function setSpots(spots: Spot[]) {
+    setTrip((t) => ({ ...t, spots }));
+  }
+  function setChecklist(checklist: ChecklistItem[]) {
+    setTrip((t) => ({ ...t, checklist }));
+  }
+  function setPacking(packing: PackingItem[]) {
+    setTrip((t) => ({ ...t, packing }));
   }
 
   function handleShare() {
@@ -248,33 +299,59 @@ export default function TripEditor({ initialTrip, slug }: { initialTrip: TripDat
         <button onClick={handlePrint} aria-label="인쇄 또는 PDF로 저장">🖨️ 인쇄/PDF</button>
       </div>
 
-      <main className="content">
-        {trip.days.length === 0 ? (
-          <section className="card state-screen">
-            <p>아직 등록된 날짜가 없습니다.</p>
-            {canEdit && mode === 'edit' && (
-              <button className="primary" onClick={addDay} aria-label="첫 날짜 추가">+ 날짜 추가</button>
-            )}
-          </section>
-        ) : (
-          trip.days.map((day, i) => (
-            <DayCard
-              key={day.id}
-              day={day}
-              dayIndex={i}
-              mode={mode}
-              onChangeDay={(patch) => updateDay(day.id, patch)}
-              onDeleteDay={() => deleteDay(day.id)}
-              canDeleteDay={trip.days.length > 0}
-            />
-          ))
-        )}
-
-        {mode === 'edit' && trip.days.length > 0 && (
-          <button className="add-row-btn" onClick={addDay} aria-label="날짜 섹션 추가">
-            + 날짜 추가
+      <nav className="tab-track no-print">
+        {TAB_DEFS.map((t) => (
+          <button
+            key={t.id}
+            className={`tab-btn ${activeTab === t.id ? 'active' : ''}`}
+            onClick={() => setActiveTab(t.id)}
+            aria-label={t.label}
+          >
+            {t.label}
           </button>
+        ))}
+      </nav>
+
+      <main className="content">
+        {activeTab === 'itinerary' &&
+          (trip.days.length === 0 ? (
+            <section className="card state-screen">
+              <p>아직 등록된 날짜가 없습니다.</p>
+              {canEdit && mode === 'edit' && (
+                <button className="primary" onClick={addDay} aria-label="첫 날짜 추가">+ 날짜 추가</button>
+              )}
+            </section>
+          ) : (
+            <>
+              {trip.days.map((day, i) => (
+                <DayCard
+                  key={day.id}
+                  day={day}
+                  dayIndex={i}
+                  mode={mode}
+                  onChangeDay={(patch) => updateDay(day.id, patch)}
+                  onDeleteDay={() => deleteDay(day.id)}
+                  canDeleteDay={trip.days.length > 0}
+                />
+              ))}
+              {mode === 'edit' && (
+                <button className="add-row-btn" onClick={addDay} aria-label="날짜 섹션 추가">
+                  + 날짜 추가
+                </button>
+              )}
+            </>
+          ))}
+
+        {activeTab === 'budget' && (
+          <BudgetSection budget={trip.budget} exRate={trip.exRate} mode={mode} onChangeBudget={setBudget} onChangeExRate={setExRate} />
         )}
+        {activeTab === 'expense' && (
+          <ExpenseSection expenses={trip.expenses} exRate={trip.exRate} mode={mode} onChange={setExpenses} />
+        )}
+        {activeTab === 'outfit' && <OutfitSection outfits={trip.outfits} mode={mode} onChange={setOutfits} />}
+        {activeTab === 'spots' && <SpotsSection spots={trip.spots} mode={mode} onChange={setSpots} />}
+        {activeTab === 'checklist' && <ChecklistSection checklist={trip.checklist} mode={mode} onChange={setChecklist} />}
+        {activeTab === 'packing' && <PackingSection packing={trip.packing} mode={mode} onChange={setPacking} />}
       </main>
 
       {showImport && <ExcelImportModal onClose={() => setShowImport(false)} onImport={handleImport} />}
