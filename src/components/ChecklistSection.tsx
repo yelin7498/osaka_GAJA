@@ -220,7 +220,7 @@ export default function ChecklistSection({ checklist, mode, onChange, tripStartD
                 {c.text || '(내용 없음)'}
               </span>
               {c.due && (
-                <span className="mono" style={{ fontSize: 11.5, color: 'var(--ink-soft)' }}>
+                <span className="mono cl-due" style={{ fontSize: 11.5, color: 'var(--ink-soft)' }}>
                   {c.due}
                 </span>
               )}
