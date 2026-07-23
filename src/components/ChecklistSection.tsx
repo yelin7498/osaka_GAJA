@@ -192,7 +192,7 @@ export default function ChecklistSection({ checklist, mode, onChange, tripStartD
       )}
 
       {sorted.map((c) => (
-        <div key={c.id} className={`check-row ${c.done ? 'done' : ''}`}>
+        <div key={c.id} className={`check-row check-row--${mode} ${c.done ? 'done' : ''}`}>
           <input
             type="checkbox"
             checked={c.done}
