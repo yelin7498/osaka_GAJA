@@ -166,6 +166,35 @@ table.excel-preview th { background: var(--line-soft); }
 .state-screen { text-align: center; padding: 60px 20px; color: var(--ink-soft); }
 .state-screen .spin { width: 28px; height: 28px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--vermillion); animation: spin .8s linear infinite; margin: 0 auto 14px; }
 
+/* ---------- tabs ---------- */
+.tab-track { display: flex; gap: 6px; flex-wrap: wrap; max-width: 920px; margin: 18px auto 0; padding: 0 20px; }
+.tab-btn { font-size: 12.5px; padding: 7px 14px; border-radius: 20px; border: 1px solid var(--line); background: var(--card); color: var(--ink-soft); cursor: pointer; }
+.tab-btn:hover { border-color: var(--vermillion-soft); }
+.tab-btn.active { background: var(--vermillion); border-color: var(--vermillion); color: #fff; font-weight: 600; }
+
+/* ---------- generic section rows (budget/expense/outfit/checklist/packing/spots) ---------- */
+.section-row {
+  display: grid;
+  gap: 8px;
+  padding: 10px 2px;
+  border-top: 1px dashed var(--line);
+  align-items: center;
+}
+.section-row:first-of-type { border-top: none; }
+.section-row input, .section-row select { width: 100%; }
+.row-delete { flex-shrink: 0; }
+.summary-bar { display: flex; gap: 18px; flex-wrap: wrap; padding: 10px 12px; background: var(--line-soft); border-radius: 8px; margin-bottom: 14px; font-size: 13px; }
+.summary-bar b { color: var(--vermillion); }
+.check-row, .pack-row { display: flex; align-items: center; gap: 10px; padding: 8px 2px; border-top: 1px dashed var(--line); }
+.check-row:first-of-type, .pack-row:first-of-type { border-top: none; }
+.check-row.done .cl-text, .pack-row.done .cl-text { text-decoration: line-through; color: var(--ink-soft); }
+.group-title { font-size: 12px; font-weight: 600; color: var(--indigo); margin: 14px 0 4px; }
+.group-title:first-child { margin-top: 0; }
+.priority-tag { font-size: 10.5px; border-radius: 20px; padding: 1px 8px; display: inline-block; }
+.priority-tag.상 { background: #F3DCD6; color: var(--vermillion); }
+.priority-tag.중 { background: var(--line-soft); color: var(--indigo); }
+.priority-tag.하 { background: var(--line-soft); color: var(--ink-soft); }
+
 /* ---------- print ---------- */
 @media print {
   .no-print { display: none !important; }
