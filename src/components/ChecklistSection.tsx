@@ -49,7 +49,6 @@ function MonthCalendar({
   endDate,
   selected,
   onSelectDate,
-  onToggleTask,
 }: {
   y: number;
   m: number;
@@ -58,7 +57,6 @@ function MonthCalendar({
   endDate?: string;
   selected: string | null;
   onSelectDate: (d: string) => void;
-  onToggleTask: (id: string) => void;
 }) {
   const first = new Date(y, m, 1).getDay();
   const total = new Date(y, m + 1, 0).getDate();
@@ -78,15 +76,9 @@ function MonthCalendar({
         onClick={() => onSelectDate(ds)}
       >
         <div className="daynum">{d}</div>
+        {/* 점/일정 표시는 정보 전달용입니다. 날짜 클릭으로만 선택되도록 별도 클릭 핸들러를 두지 않습니다. */}
         {tasks.map((t) => (
-          <div
-            key={t.id}
-            className={`cal-task ${t.done ? 'done' : ''}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleTask(t.id);
-            }}
-          >
+          <div key={t.id} className={`cal-task ${t.done ? 'done' : ''}`}>
             <span className="dot" />
             <span className="t">{t.text || '(내용 없음)'}</span>
           </div>
@@ -118,19 +110,26 @@ export default function ChecklistSection({ checklist, mode, onChange, tripStartD
     onChange(checklist.filter((c) => c.id !== id));
   }
   function add() {
-    onChange([...checklist, emptyChecklistItem()]);
-  }
-  function toggleDone(id: string) {
-    const target = checklist.find((c) => c.id === id);
-    if (target) update(id, { done: !target.done });
+    const item = emptyChecklistItem();
+    // 날짜를 선택한 상태(필터 중)라면 그 날짜를 마감일로 바로 채워서 추가합니다.
+    // (그렇지 않으면 마감일이 없어 필터된 목록에 보이지 않아 "추가가 안 되는" 것처럼 보였습니다.)
+    if (filterDate) item.due = filterDate;
+    onChange([...checklist, item]);
   }
   function selectDate(d: string) {
     setFilterDate((prev) => (prev === d ? null : d));
   }
 
   const months = monthsToShow(checklist, tripStartDate, tripEndDate);
-  const listSource = filterDate ? checklist.filter((c) => c.due && c.due <= filterDate) : checklist;
+  // 필터 중에는: 마감일이 그 날짜까지인 항목만 보여주되, 이미 완료된 항목은
+  // 그 마감일이 지난 뒤(선택한 날짜보다 이전 마감일)까지 계속 노출하지 않습니다.
+  // 필터가 없는 "전체" 보기에서는 완료 여부와 상관없이 모두 보여줍니다.
+  const listSource = filterDate
+    ? checklist.filter((c) => c.due && c.due <= filterDate && (!c.done || c.due === filterDate))
+    : checklist;
+  // 급한 일정(마감일이 이른) 순으로 정렬하고, 완료된 항목은 맨 아래로 보냅니다.
   const sorted = [...listSource].sort((a, b) => {
+    if (a.done !== b.done) return a.done ? 1 : -1;
     if (!a.due && !b.due) return 0;
     if (!a.due) return 1;
     if (!b.due) return -1;
@@ -162,7 +161,6 @@ export default function ChecklistSection({ checklist, mode, onChange, tripStartD
           endDate={tripEndDate}
           selected={filterDate}
           onSelectDate={selectDate}
-          onToggleTask={toggleDone}
         />
       ))}
 
