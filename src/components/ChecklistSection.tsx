@@ -48,6 +48,7 @@ export default function ChecklistSection({ checklist, mode, onChange }: Props) {
           {mode === 'edit' ? (
             <>
               <input
+                className="cl-input"
                 style={{ flex: 1 }}
                 value={c.text}
                 onChange={(e) => update(c.id, { text: e.target.value })}

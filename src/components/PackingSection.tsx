@@ -51,6 +51,7 @@ export default function PackingSection({ packing, mode, onChange }: Props) {
               {mode === 'edit' ? (
                 <>
                   <input
+                    className="cl-input"
                     style={{ flex: 1 }}
                     value={p.text}
                     onChange={(e) => update(p.id, { text: e.target.value })}
