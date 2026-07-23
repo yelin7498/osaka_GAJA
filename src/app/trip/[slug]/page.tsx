@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { getSupabaseAdmin } from '@/lib/supabase/server';
-import { TripData } from '@/lib/types';
+import { TripData, normalizeTrip } from '@/lib/types';
 import TripEditor from '@/components/TripEditor';
 
 export const dynamic = 'force-dynamic'; // 항상 최신 데이터를 보여줍니다.
@@ -15,7 +15,7 @@ async function fetchTrip(slug: string): Promise<TripData | null> {
       .maybeSingle();
 
     if (!data || !data.is_public) return null;
-    return data.trip_data as TripData;
+    return normalizeTrip(data.trip_data as TripData);
   } catch {
     // 환경변수 미설정 등 서버 오류 시에도 500 대신 not-found 화면으로 안내
     return null;
